@@ -1,0 +1,30 @@
+hw/  (專案根目錄)
+│
+├── frontend/             (React 專案位置)
+│   ├── src/
+│   ├── package.json
+│   └── ...
+│
+├── backend/              (Django 專案位置)
+│   ├── manage.py
+│   ├── requirements.txt  (依賴套件清單)
+│   ├── .env              (重視資安，密鑰絕對不能進版控)
+│   │
+│   ├── config/           (原專案的主資料夾，我建議改名為 config 以示區別)
+│   │   ├── settings.py
+│   │   ├── urls.py       (API Gateway 的概念，所有路由總入口)
+│   │   └── wsgi.py
+│   │
+│   └── apps/             (【關鍵設計】將所有業務 App 收納在此，保持根目錄乾淨)
+│       ├── __init__.py
+│       │
+│       ├── core/         (放共用的邏輯，如自定義 User, Utils, BaseModels)
+│       │   └── ...
+│       │
+│       ├── yeast/      (酵母分析)
+│       │   ├── views.py  (或是分成 views 資料夾)
+│       │   ├── services/ (分析邏輯層)
+│       │   └── models.py
+│       │
+│       └── wormbase/  (線蟲分析)
+│           └── ...
