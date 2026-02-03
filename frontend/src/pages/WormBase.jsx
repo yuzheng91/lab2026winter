@@ -98,7 +98,7 @@ export default function WormBase() {
 
   // 參數 State
   const [method, setMethod] = useState("FDR");
-  const [threshold, setThreshold] = useState("0.05");
+  const [threshold, setThreshold] = useState("0.01");
 
   // 【新增】Aspect 勾選狀態 (預設全選)
   const [selectedAspects, setSelectedAspects] = useState({
@@ -160,9 +160,44 @@ export default function WormBase() {
   };
 
   const handleSample = () => {
-    setInputText(
-      "abl-1\natl-1\nclk-2\nhim-6\nhpr-9\nhpr-17\nhsr-9\nhus-1\nmrt-2\nD1053.2\ndot-1.2\ndot-1.4\ndot-1.3\nuri-1\ngen-1\ndot-1.1\ndot-1.5"
-    );
+    // 定義範例基因清單
+    const sampleGenes = [
+      "WBGene00002324",
+      "WBGene00003164",
+      "WBGene00004343",
+      "WBGene00007012",
+      "WBGene00007013",
+      "WBGene00007017",
+      "WBGene00007018",
+      "WBGene00007026",
+      "WBGene00020951",
+      "WBGene00001078",
+      "WBGene00007189",
+      "WBGene00010720",
+      "WBGene00017983",
+      "WBGene00018175",
+      "WBGene00020375",
+      "WBGene00020820",
+      "WBGene00003582",
+      "WBGene00004879",
+      "WBGene00004880",
+      "WBGene00004881",
+      "WBGene00004882",
+      "WBGene00004883",
+      "WBGene00004884",
+      "WBGene00004885",
+      "WBGene00010551",
+      "WBGene00012343",
+      "WBGene00012904",
+      "WBGene00013188",
+      "WBGene00015943",
+      "WBGene00018156",
+      "WBGene00021365",
+      "WBGene00021929",
+    ];
+
+    // 將陣列轉為換行分隔的字串，並填入輸入框
+    setInputText(sampleGenes.join("\n"));
   };
 
   return (
@@ -243,6 +278,7 @@ export default function WormBase() {
                   <MenuItem value="0.01">0.01</MenuItem>
                   <MenuItem value="0.001">0.001</MenuItem>
                   <MenuItem value="0.000001">1e-6</MenuItem>
+                  <MenuItem value="None">None</MenuItem>
                 </Select>
               </FormControl>
 
@@ -304,7 +340,7 @@ export default function WormBase() {
           size="large"
           onClick={handleAnalyze}
           disabled={loading}
-          sx={{ minWidth: 200}}
+          sx={{ minWidth: 200 }}
         >
           {loading ? (
             <CircularProgress size={24} color="inherit" />

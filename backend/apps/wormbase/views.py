@@ -90,11 +90,10 @@ def _perform_enrichment(input_genes_set, aspect_char, method, threshold):
     
     # 背景母體數 (N): 該 Aspect 下所有被註解到的 Live Genes 聯集總數
     # 或者用所有 Live Genes 總數? 通常用 "有該 Aspect 註解的基因總數" 比較準
-    background_genes_in_aspect = set().union(*go_map.values())
-    F_total = len(background_genes_in_aspect) # N
+    F_total = len(_LIVE_GENE_IDS) # N
     
     # 篩選 Input genes: 必須在背景母體中
-    valid_input_genes = input_genes_set.intersection(background_genes_in_aspect)
+    valid_input_genes = input_genes_set.intersection(_LIVE_GENE_IDS)
     S_input = len(valid_input_genes) # n (Draw size)
 
     results = []
@@ -174,10 +173,10 @@ def _perform_enrichment(input_genes_set, aspect_char, method, threshold):
     
     # Split into two tables
     df_enr_final = df[df["Adj P-value Enriched"] <= thresh_val].copy()
-    df_enr_final = df_enr_final.sort_values("Adj P-value Enriched").head(500) # Limit rows
+    df_enr_final = df_enr_final.sort_values("Adj P-value Enriched")
     
     df_dep_final = df[df["Adj P-value Depleted"] <= thresh_val].copy()
-    df_dep_final = df_dep_final.sort_values("Adj P-value Depleted").head(500)
+    df_dep_final = df_dep_final.sort_values("Adj P-value Depleted")
 
     # Helper to format output
     def format_records(dframe, p_col):
