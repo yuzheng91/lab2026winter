@@ -23,3 +23,17 @@ export const analyzeWormBase = async (text, runFpc, runGeneGroup) => {
 
   return response.json();
 };
+
+export const fetchTermEvidence = async ({ term_id, genes }) => {
+  // ★ 修正這裡：加上 /worm 前綴，並統一使用 API_BASE_URL
+  const response = await fetch(`${API_BASE_URL}/worm/api/fetch_term_evidence/`, { 
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ term_id, genes }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch evidence data');
+  }
+  return response.json();
+};

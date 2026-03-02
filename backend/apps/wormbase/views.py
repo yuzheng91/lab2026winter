@@ -1,4 +1,4 @@
-import os
+import os, re
 import json
 import math
 import numpy as np
@@ -23,15 +23,19 @@ _FEATURE_GROUP_DATABASE = {} # 存放 55 個 feature 的資料庫
 _LIVE_GENE_IDS = set() 
 _SYMBOL_MAP = {}
 
+_EVIDENCE_DF = None 
+_ID_TO_SYMBOL = {}
+
 # ==========================================
 # 2. 系統初始化與資料載入
 # ==========================================
 def load_data():
-    """ 預先載入並處理 WormBase 與 55 Feature 資料 """
     global _LIVE_GENE_IDS, _SYMBOL_MAP, _GO_DATABASE, _FEATURE_GROUP_DATABASE
-    if _LIVE_GENE_IDS: return 
+    global _EVIDENCE_DF, _ID_TO_SYMBOL # ★ 宣告全域變數
 
+    if _LIVE_GENE_IDS: return 
     print("Loading Data...")
+
     # --- 載入 WormBase ID ---
     try:
         df_ids = pd.read_csv(ID_FILE, sep='\t', header=None, names=['GeneID', 'Status', 'SeqName', 'Name', 'Other'], encoding='utf-8')
@@ -39,42 +43,37 @@ def load_data():
         _LIVE_GENE_IDS = set(live_df['GeneID'].values)
         for _, row in live_df.iterrows():
             gid = row['GeneID']
-            if pd.notna(row['Name']): _SYMBOL_MAP[str(row['Name']).upper()] = gid
-            if pd.notna(row['SeqName']): _SYMBOL_MAP[str(row['SeqName']).upper()] = gid
+            # ★ 新增：建立 ID 對應 Symbol 的字典，給 Gene Groups 顯示用
+            if pd.notna(row['Name']): 
+                _SYMBOL_MAP[str(row['Name']).upper()] = gid
+                _ID_TO_SYMBOL[gid] = str(row['Name'])
+            elif pd.notna(row['SeqName']):
+                _SYMBOL_MAP[str(row['SeqName']).upper()] = gid
+                _ID_TO_SYMBOL[gid] = str(row['SeqName'])
+            else:
+                _ID_TO_SYMBOL[gid] = gid
             _SYMBOL_MAP[gid.upper()] = gid 
     except Exception as e:
         print(f"Error loading ID file: {e}")
 
     # --- 載入 GAF FPC 資料 ---
     try:
-        gaf_cols = [1, 4, 8]
-        df_gaf = pd.read_csv(GAF_FILE, sep='\t', comment='!', header=None, usecols=gaf_cols, names=['GeneID', 'GOID', 'Aspect'])
+        # ★ 修改：原本只讀 [1, 4, 8]，現在多讀 [2, 5, 6] 拿 Symbol, Reference, Evidence
+        gaf_cols = [1, 2, 4, 5, 6, 8]
+        df_gaf = pd.read_csv(GAF_FILE, sep='\t', comment='!', header=None, usecols=gaf_cols, 
+                             names=['GeneID', 'Symbol', 'GOID', 'Reference', 'Evidence', 'Aspect'])
         df_gaf = df_gaf[df_gaf['GeneID'].isin(_LIVE_GENE_IDS)]
+        
+        # ★ 新增：將完整的 DataFrame 存起來給 API 查詢用
+        _EVIDENCE_DF = df_gaf 
+
         for aspect, group in df_gaf.groupby('Aspect'):
             go_map = group.groupby('GOID')['GeneID'].apply(set).to_dict()
             _GO_DATABASE[aspect] = go_map
     except Exception as e:
         print(f"Error loading GAF file: {e}")
         
-    # --- 載入 55 Feature 資料 ---
-    try:
-        if os.path.exists(FEATURE_TABLE_FILE):
-            df_features = pd.read_csv(FEATURE_TABLE_FILE)
-            for _, row in df_features.iterrows():
-                feature_name = row['Gene list']
-                gene_list_str = row['Gene']
-                if pd.notna(gene_list_str) and str(gene_list_str).strip():
-                    # 嘗試將 CSV 內的基因也透過 _SYMBOL_MAP 轉成正式的 GeneID，確保後續交集比對精準
-                    raw_genes = [g.strip().upper() for g in str(gene_list_str).split(',') if g.strip()]
-                    mapped_feature_genes = set()
-                    for g in raw_genes:
-                        if g in _SYMBOL_MAP:
-                            mapped_feature_genes.add(_SYMBOL_MAP[g])
-                        else:
-                            mapped_feature_genes.add(g) # 如果沒對應到就保留原樣
-                    _FEATURE_GROUP_DATABASE[feature_name] = mapped_feature_genes
-    except Exception as e:
-        print(f"Error loading Feature Table file: {e}")
+    # ... (保留你的 55 Feature 資料載入邏輯) ...
 
     print("All Data Loaded.")
 
@@ -275,6 +274,78 @@ def analyze_worm(request):
             response_data["gene_group_results"] = _perform_gene_group_enrichment(mapped_ids)
             
         return JsonResponse(response_data)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+def fetch_term_evidence(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST only"}, status=405)
+
+    global _LIVE_GENE_IDS, _EVIDENCE_DF
+    if not _LIVE_GENE_IDS or _EVIDENCE_DF is None:
+        print("[Debug] ⚠️ _EVIDENCE_DF 為空，正在重新載入資料...")
+        load_data()
+
+    try:
+        payload = json.loads(request.body)
+        term_id = payload.get("term_id", "").strip()
+        text = payload.get("genes", "")
+        
+        print(f"\n========== 🔍 準備查詢明細 ==========")
+        print(f"1. 前端要求的 GO ID: [{term_id}]")
+        
+        raw_genes = re.split(r'[\n\r,\t\s]+', text)
+        input_list = [g.strip().upper() for g in raw_genes if g.strip()]
+        print(f"2. 前端傳來的基因數量 (去空白後): {len(input_list)}")
+        
+        mapped_ids = set()
+        for item in input_list:
+            if item in _SYMBOL_MAP:
+                mapped_ids.add(_SYMBOL_MAP[item])
+                
+        print(f"3. 成功轉換成 WormBase ID 的數量: {len(mapped_ids)}")
+        if len(mapped_ids) > 0:
+            print(f"   (範例 ID: {list(mapped_ids)[:3]}...)")
+        
+        rows = []
+        if term_id.startswith("GO:"):
+            if _EVIDENCE_DF is not None:
+                print(f"4. _EVIDENCE_DF 總筆數: {len(_EVIDENCE_DF)}")
+                
+                # 分步驟檢查，看是哪邊沒有交集
+                term_match_count = (_EVIDENCE_DF['GOID'].str.strip() == term_id).sum()
+                print(f"5. 資料庫中符合 [{term_id}] 的筆數: {term_match_count}")
+                
+                gene_match_count = _EVIDENCE_DF['GeneID'].str.strip().isin(mapped_ids).sum()
+                print(f"6. 資料庫中符合輸入基因的筆數: {gene_match_count}")
+                
+                # 實際取交集
+                mask = (_EVIDENCE_DF['GOID'].str.strip() == term_id) & (_EVIDENCE_DF['GeneID'].str.strip().isin(mapped_ids))
+                res_df = _EVIDENCE_DF[mask].copy()
+                print(f"7. 最終交集 (GO + Gene) 命中筆數 (去重前): {len(res_df)}")
+                
+                res_df = res_df.drop_duplicates(subset=['GeneID', 'GOID'])
+                print(f"8. 最終回傳筆數 (去重後): {len(res_df)}")
+                
+                for _, row in res_df.iterrows():
+                    symbol = row["Symbol"]
+                    if pd.isna(symbol): symbol = row["GeneID"]
+                    rows.append({
+                        "WormBase_ID": str(row["GeneID"]).strip(),
+                        "Symbol": str(symbol).strip(),
+                        "GO_ID": str(row["GOID"]).strip(),
+                        "Reference": str(row["Reference"]).strip() if pd.notna(row["Reference"]) else "-",
+                        "Evidence_Code": str(row["Evidence"]).strip() if pd.notna(row["Evidence"]) else "-",
+                    })
+            else:
+                print("[Debug] ❌ _EVIDENCE_DF 依然是 None！載入失敗！")
+        
+        print("======================================\n")
+        return JsonResponse({"rows": rows})
 
     except Exception as e:
         import traceback
