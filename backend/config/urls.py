@@ -22,4 +22,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("yeast/", include("apps.yeast.urls")),
     path("worm/", include("apps.wormbase.urls")),
+    path('wqfc/', include('apps.wqfc.urls')),
 ]

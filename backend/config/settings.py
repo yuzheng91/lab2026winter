@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.yeast',
     'apps.wormbase',
+    'apps.wqfc',
     'corsheaders',
 ]
 

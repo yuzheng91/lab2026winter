@@ -6,6 +6,7 @@ import { Box } from '@mui/material'; // 用來做整體佈局
 import Header from './components/Header';
 import YeastAnalysis from './pages/YeastAnalysis';
 import Wormbase from './pages/WormBase';
+import WqfcAnalysis from './pages/WqfcAnalysis'; // ⭐ 新增這行：引入 WQFC 頁面
 import { Home, Help, Contact } from './pages/StaticPages'; // 引入剛剛建立的靜態頁面
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
           {/* 功能頁 */}
           <Route path="/yeast" element={<YeastAnalysis />} />
           <Route path="/wormbase" element={<Wormbase />} />
+          <Route path="/wqfc" element={<WqfcAnalysis />} /> {/* ⭐ 新增這行：設定 WQFC 的網址路由 */}
           
           {/* 靜態頁 */}
           <Route path="/help" element={<Help />} />

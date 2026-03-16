@@ -328,7 +328,7 @@ def fetch_term_evidence(request):
                 res_df = _EVIDENCE_DF[mask].copy()
                 print(f"7. 最終交集 (GO + Gene) 命中筆數 (去重前): {len(res_df)}")
                 
-                res_df = res_df.drop_duplicates(subset=['GeneID', 'GOID'])
+                res_df = res_df.drop_duplicates(subset=['GeneID', 'GOID', 'Evidence', 'Reference'])
                 print(f"8. 最終回傳筆數 (去重後): {len(res_df)}")
                 
                 for _, row in res_df.iterrows():
